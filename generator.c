@@ -26,7 +26,7 @@ void matrix_generator(int numtasks){
                 MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
                 MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
                 MPI_Send(&a[offset][0], rows*NCA, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
-                MPI_Send(&b, NCA*NCB, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
+                MPI_Send(&b, SIZE * SIZE, MPI_DOUBLE, dest, mtype, MPI_COMM_WORLD);
                 offset = offset + rows;
                 }
             mtype = FROM_WORKER;
@@ -34,7 +34,7 @@ void matrix_generator(int numtasks){
                 source = i;
                 MPI_Recv(&offset, 1, MPI_INT, source, mtype, MPI_COMM_WORLD, &status);
                 MPI_Recv(&rows, 1, MPI_INT, source, mtype, MPI_COMM_WORLD, &status);
-                MPI_Recv(&c[offset][0], rows*NCB, MPI_DOUBLE, source, mtype, MPI_COMM_WORLD, &status);
+                MPI_Recv(&c[offset][0], rows*SIZE, MPI_DOUBLE, source, mtype, MPI_COMM_WORLD, &status);
             }
         }
     }
