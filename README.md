@@ -12,3 +12,12 @@
 4. Implement a parallel solution using MPI to optimise the serial version done in items 2 and 3 above.
 5. A verification function that shows the correctness of your results
 
+## LU Decomposition
+
+### Precondition
+
+1. `len(matrix) == len(matrix[0])`
+2. det(matrix) != 0
+3. No pivot number == 0 while eliminating elements
+
+Condition 1 is already excluded in this project because `len(matrix)` will forced to equal to `len(matrix[0])`.
