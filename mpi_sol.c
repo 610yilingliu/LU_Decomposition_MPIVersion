@@ -1,4 +1,3 @@
-#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -6,7 +5,6 @@
 #include <stdbool.h>
 #include <string.h>
 #include <omp.h>
-
 
 #define SIZE 3
 // the random number will be generated in range [-RANGE, RANGE]
@@ -27,8 +25,6 @@ int ntasks = 1;
 MPI_Status status;
 int taskid;
 
-// dimension of rectangular matrix, based on user input
-int SIZE;
 double matrix[SIZE][SIZE];
 double L[SIZE][SIZE];
 double U[SIZE][SIZE];
@@ -39,6 +35,5 @@ double Y[SIZE][1];
 // generate matrix with random number. input: 2d matrix pointer, number of thread, is empty or not
 extern void matrix_generator(double *);
 extern void vec_generator();
-extern void get_lu(double *, double *, double *, double *, int);
 // input: number of threads
 extern void re_arrange(int);
