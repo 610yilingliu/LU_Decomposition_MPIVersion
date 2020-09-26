@@ -5,8 +5,10 @@
 #include <mpi.h>
 #include <stdbool.h>
 #include <string.h>
+#include <omp.h>
 
 
+#define SIZE 3
 // the random number will be generated in range [-RANGE, RANGE]
 #define RANGE 3
 // divide the generated number, converted it into double. For example, if range = 10 and SCALE = 10, random number will between [-, 1]
@@ -19,13 +21,24 @@
 clock_t start_t,finish_t;
 double total_t;
 
-// number of task, based on user input
-int ntasks;
+int nthreads = 1;
+// MPI variables
+int ntasks = 1;
+MPI_Status status;
+int taskid;
+
 // dimension of rectangular matrix, based on user input
 int SIZE;
-double **matrix;
-double *vec
-double *answers;
-// generate matrix with random number. input: number of thread
-extern void matrix_generator(int);
-extern void vector_generator();
+double matrix[SIZE][SIZE];
+double L[SIZE][SIZE];
+double U[SIZE][SIZE];
+double vec[SIZE][1];
+double answers[SIZE][1];
+double Y[SIZE][1];
+
+// generate matrix with random number. input: 2d matrix pointer, number of thread, is empty or not
+extern void matrix_generator(double *);
+extern void vec_generator();
+extern void get_lu(double *, double *, double *, double *, int);
+// input: number of threads
+extern void re_arrange(int);
