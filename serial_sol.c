@@ -7,7 +7,7 @@
 #define SIZE 100
 // the random number will be generated in range [-RANGE, RANGE]
 #define RANGE 3
-// divide the generated number, converted it into double. For example, if range = 10 and SCALE = 10, random number will between [-, 1]
+// divide the generated number, converted it into double. For example, if range = 10 and SCALE = 10, random number will between [-1, 1]
 #define SCALE 1
 
 
@@ -176,10 +176,10 @@ int main(int argc, char* argv[]){
     printf("Start Checking...\n");
     bool result = checker();
     if(result == true){
-        printf("True\n");
+        printf("Answer is correct\n");
     }
     else{
-        printf("False\n");
+        printf("Not a correct answer\n");
     }
     return 0;
 }

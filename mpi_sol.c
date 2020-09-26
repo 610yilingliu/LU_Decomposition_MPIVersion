@@ -9,7 +9,7 @@
 #define SIZE 3
 // the random number will be generated in range [-RANGE, RANGE]
 #define RANGE 3
-// divide the generated number, converted it into double. For example, if range = 10 and SCALE = 10, random number will between [-, 1]
+// divide the generated number, converted it into double. For example, if range = 10 and SCALE = 10, random number will between [-1, 1]
 #define SCALE 1
 // task id of first task
 #define MASTER 0
@@ -32,8 +32,8 @@ double vec[SIZE][1];
 double answers[SIZE][1];
 double Y[SIZE][1];
 
-// generate matrix with random number. input: 2d matrix pointer, number of thread, is empty or not
-extern void matrix_generator(double *);
-extern void vec_generator();
-// input: number of threads
-extern void re_arrange(int);
+int int main(int argc, char* argv[]) {
+
+
+    return 0;
+}
