@@ -51,7 +51,6 @@ void exporting(double* arr_2d, int rownum, int colnum, char* fname) {
 }
 
 void count(){
-
     for(int i = 0; i < SIZE; i++){
         double right = vec[i][0];
         for(int j = 0; j < i; j++){
@@ -112,8 +111,6 @@ int find_maxrow(int col) {
     }
     return idx;
 }
-
-
 
 void swap(int a, int b) {
     if (a != b) {
