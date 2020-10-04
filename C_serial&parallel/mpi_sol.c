@@ -103,7 +103,7 @@ void vec_generator(){
 
 // generate random matrix in parallel
 // Time Complexity: T(comp) = n/p * n ~ O(n^2), T(comm) = p
-void generator(){
+void matrix_generator(){
     int numworkers = ntasks - 1;
     int avgrow = SIZE/numworkers;
     int extra = SIZE%numworkers;
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
         printf("Two or more tasks are needed\n");
         exit(EXIT_FAILURE);
     }
-    generator();
+    matrix_generator();
     if(taskid == MASTER){
         vec_generator();
         exporting(matrix_pointer, SIZE, SIZE, "matrix.csv");
