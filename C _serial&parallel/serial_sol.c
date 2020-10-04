@@ -91,7 +91,6 @@ void get_lu(){
     }
 }
 
-
 int find_maxrow(int col) {
     int mx = 0;
     int idx = 0;
@@ -105,7 +104,7 @@ int find_maxrow(int col) {
     if (mx == 0) {
         finish_t = clock();
         total_t = (double)(finish_t - start_t) / CLOCKS_PER_SEC;
-        printf("Infinite number of answers\n");
+        printf("Invalid Matrix\n");
         printf("Spent time:%f \n",total_t);
         exit(0);
     }
