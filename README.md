@@ -139,6 +139,7 @@ will be
 After applying those functions
 
 ### get_lu
+
 mentioned in section Infrastructure
 
 ### count
@@ -149,3 +150,11 @@ calculate the answer based on L matrix and U matrix. The way that the parallel v
 
 Check if the answer we got is correct or not. Parallel version also uses `MPI_Allreduce` to sum up the local sum in each process.
 The final answer we got for checking only keep 3 digits because 1 divide by 3 in computer will be 0.33333...(limited digit) so if we use 3 to multiply this answer, it will not equal to 1.
+
+## Environment
+
+OS: Windows 10
+
+CPU: Intel i7-8750H
+
+Microsoft MPI
