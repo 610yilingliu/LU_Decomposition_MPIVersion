@@ -43,20 +43,49 @@ double *Y;
 // export: 1, not export: 0
 int export_ans;
 
+int mpierror;
 
-void exporting(double* arr_2d, int rownum, int colnum, char* fname) {
-    // save in csv mode, split by ','
-    FILE* fp = NULL;
-    fp = fopen(fname, "w");
-    double* p = (double*)arr_2d;
-    for (int i = 0; i < rownum; i++) {
-        for (int j = 0; j < colnum; j++) {
-            double ele = p[i * colnum + j];
-            fprintf(fp, "%f,", ele);
-        }
-        fprintf(fp, "\n");
+// exit if mpi error
+void mpi_error_check(int mpierror){
+    if(mpierror != MPI_SUCCESS){
+        printf("Error mpi failure\n");
+        exit(EXIT_FAILURE);
     }
-    fclose(fp);
+}
+
+
+void exporting(double* arr_2d, int fsize, char* fname) {
+    // mat_offset: offset in matrix
+    // offset: offset in file
+    MPI_File wh;
+    int ele_per_procs = fsize/ntasks;
+    while(ele_per_procs * ntasks < fsize){
+        ele_per_procs++;
+    }
+    // last process treat the rest
+    int ele_last_procs = fsize - (ele_per_procs * (ntasks - 1));
+
+    MPI_File_open(MPI_COMM_WORLD,fname,MPI_MODE_WRONLY | MPI_MODE_CREATE,MPI_INFO_NULL,&wh);
+    if(taskid == MASTER){
+        // the first process should write the size of the matrix
+        // will be error if use SIZE instead of &SIZE
+        mpierror = MPI_File_write_at(wh, 0, &SIZE, 1, MPI_INT, &status);
+        mpi_error_check(mpierror);
+    }
+    if(taskid == ntasks - 1){
+        int mat_offset = taskid * ele_per_procs; 
+        MPI_Offset offset = mat_offset;
+        // because we already have the dimension at the beginning of the file so the offset should be 1 * sizeof(int) + offset * sizeof(double)
+        mpierror = MPI_File_write_at_all(wh, offset * sizeof(double) + 1 * sizeof(int), &arr_2d[mat_offset], ele_last_procs, MPI_DOUBLE, &status);
+        mpi_error_check(mpierror);
+    }
+    else{
+        int mat_offset = taskid * ele_per_procs;
+        MPI_Offset offset = mat_offset;
+        mpierror = MPI_File_write_at_all(wh, offset * sizeof(double) + 1 * sizeof(int), &arr_2d[mat_offset], ele_per_procs, MPI_DOUBLE, &status);
+        mpi_error_check(mpierror);
+    }
+    MPI_File_close(&wh);
 }
 
 void printmat(double * arr_2d, int rownum ,int colnum){
@@ -202,7 +231,7 @@ void get_lu(){
                 if(U(i, i) == 0){
                     printf("Divide by zero error");
                     MPI_Finalize();
-                    exit(0);
+                    exit(EXIT_FAILURE);
                 }
                 L(k, i) = (matrix(k, i) - sum)/U(i,i);
             }
@@ -241,7 +270,7 @@ void count(){
         if(L(i, i) == 0){
             printf("Divide by zero error");
             MPI_Finalize();
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         Y[i] = (right - sum)/L(i, i);
     }
@@ -257,7 +286,7 @@ void count(){
         if(U(i,i) == 0){
             printf("Divide by zero error");
             MPI_Finalize();
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         answers[i] = (right - sum)/U(i, i);
     }
@@ -272,6 +301,47 @@ void freeall(){
     free(Y);
 }
 
+void read_mat(char* fname, double* m, int fsize){
+    MPI_File fh;
+    int ele_per_procs = fsize/ntasks;
+    MPI_File_open(MPI_COMM_WORLD, fname,MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    while(ele_per_procs * ntasks < fsize){
+        ele_per_procs++;
+    }
+    // last process handle the smallest number of items.
+    int ele_last_procs = fsize - (ele_per_procs * (ntasks - 1));
+    // last process
+    if(taskid == ntasks - 1){
+        int mat_offset = 1 + (taskid * ele_per_procs);
+        MPI_Offset offset = mat_offset;
+        MPI_File_sync(fh);
+        mpierror = MPI_File_read_at_all(fh, offset * sizeof(double), &m[mat_offset], ele_last_procs, MPI_DOUBLE, &status);
+        mpi_error_check(mpierror);
+    }
+    else{
+        int mat_offset = 1 + (taskid * ele_per_procs);
+        MPI_Offset offset = mat_offset;
+        MPI_File_sync(fh);
+        mpierror = MPI_File_read_at_all(fh, offset * sizeof(double), &m[mat_offset], ele_per_procs, MPI_DOUBLE, &status);
+        mpi_error_check(mpierror);
+    }
+
+    MPI_File_close(&fh);
+}
+
+int check_file(char* fname){
+    return 0;
+}
+
+int get_size(char* fname) {
+    FILE *fp = NULL;
+    fp = fopen(fname, "rb");
+    int num;
+    // Reads the dimensions
+    fread(&num, sizeof(int), 1, fp);
+    return num;
+}
+
 int main(int argc, char* argv[]) {
 
     MPI_Init(&argc,&argv);
@@ -279,98 +349,139 @@ int main(int argc, char* argv[]) {
     MPI_Comm_size(MPI_COMM_WORLD,&ntasks);
     if(ntasks == 1){
         printf("Two or more tasks are needed\n");
+        MPI_Finalize();
         exit(EXIT_FAILURE);
     }
     MPI_Barrier(MPI_COMM_WORLD);
     start_t = MPI_Wtime();
         
     // input error checking section. If error, use MPI_Finalize() to terminate all process
-    if(argc != 5){
-        if(taskid == MASTER){
-            printf("You should allocate three variables: size, range, scale, export answer or not(0/1)\n");
-            printf("Current number of args: %d\n", argc);
+    //read from file
+    if(argv[1][0] == 'r' && argc == 2){
+        if(check_file("matrix") == 0 || check_file("vector") == 0){
+            if(taskid == MASTER) printf("Missing Matrix");
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
         }
-        MPI_Finalize();
-        exit(0);
+         SIZE = get_size("matrix");
+         if(taskid == MASTER) printf("Size: %d\n", SIZE);
+        // if cannot find the re-arranged matrix and vector, we have to use original matrix to calculate
+        if(check_file("rmatrix") == 0 || check_file("rvector") == 0){
+            matrix = (double*)malloc(SIZE * SIZE * sizeof(double));
+            // L and U should be initialized as zero
+            L = (double*)calloc(SIZE*SIZE, sizeof(double));
+            U = (double*)calloc(SIZE*SIZE, sizeof(double));
+            vec = (double*)malloc(SIZE * sizeof(double));
+            Y = (double*)calloc(SIZE, sizeof(double));
+            answers = (double*)calloc(SIZE, sizeof(double));
+            if(taskid == MASTER) printf("Reading matrix and vector\n");
+            read_mat("matrix", matrix, SIZE * SIZE);
+            read_mat("vector", vec, SIZE);
+            re_arrange();
+            exporting(matrix, SIZE* SIZE, "rmatrix");
+            exporting(vec, SIZE, "rvector");
+            get_lu();
+            exporting(L, SIZE * SIZE, "L");
+            exporting(U, SIZE * SIZE, "U");
+        }
+        // else we can use L and U to calculate
+        else{
+            if(taskid == MASTER) printf("Reading L and U\n");
+            matrix = (double*)malloc(SIZE * SIZE * sizeof(double));
+            L = (double*)malloc(SIZE * SIZE * sizeof(double));
+            U = (double*)malloc(SIZE * SIZE * sizeof(double));
+            vec = (double*)malloc(SIZE * sizeof(double));
+            Y = (double*)calloc(SIZE, sizeof(double));
+            answers = (double*)calloc(SIZE, sizeof(double));
+            read_mat("matrix", matrix, SIZE * SIZE);
+            read_mat("vector", vec, SIZE);
+            read_mat("L", L, SIZE * SIZE);
+            read_mat("U", U, SIZE * SIZE);
+        }
     }
-    if(argv[0][0] == 0){
-        if(taskid == MASTER) printf("Matrix size should greater than 0");
-        MPI_Finalize();
-        exit(0);
-    }
-    if(argv[1][0] == 0){
-        if(taskid == MASTER) printf("Range should greater than 0");
-        MPI_Finalize();
-        exit(0);
-    }
-    if(argv[2][0] == 0){
-        if(taskid == MASTER) printf("Scale should greater than 0");
-        MPI_Finalize();
-        exit(0);
-    }
-    for(int i = 1; i < argc - 1; i ++){
-        for(int j = 0; j < strlen(argv[i]); j++){
-            if(argv[i][j] < '0' || argv[i][j] > '9'){
-                if(taskid == MASTER) printf("Invalid argument at arg[%d][%d]", i, j);
-                MPI_Finalize();
-                exit(0);
+    // generate matrix and calculate
+    else if(argv[1][0] == 'g'){
+        if(argc != 6){
+            if(taskid == MASTER) printf("You should allocate three variables: size, range, scale, export answer or not(0/1)\n");
+            if(taskid == MASTER) printf("Current number of args: %d\n", argc);
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+        if(argv[2][0] == 0){
+            if(taskid == MASTER) printf("Matrix size should greater than 0");
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+        if(argv[3][0] == 0){
+            if(taskid == MASTER) printf("Range should greater than 0");
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+        if(argv[4][0] == 0){
+            if(taskid == MASTER) printf("Scale should greater than 0");
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+        for(int i = 2; i < argc; i ++){
+            for(int j = 0; j < strlen(argv[i]); j++){
+                if(argv[i][j] < '0' || argv[i][j] > '9'){
+                    if(taskid == MASTER) printf("Invalid argument at arg[%d][%d]", i, j);
+                    MPI_Finalize();
+                    exit(EXIT_FAILURE);
+                }
             }
         }
+        if(strlen(argv[5]) > 1||(argv[5][0]!= '0' && argv[5][0]!= '1')){
+            if(taskid == MASTER) printf("The 4th argument, export or not should be 0(not export) or 1(export)");
+            MPI_Finalize();
+            exit(EXIT_FAILURE);
+        }
+        export_ans = atoi(argv[5]);
+        // assign input to variables
+        SIZE = atoi(argv[2]);
+        RANGE = atoi(argv[3]);
+        SCALE = atoi(argv[4]);
+        // allocate memory space
+        matrix = (double*)malloc(SIZE * SIZE * sizeof(double));
+        // L and U should be initialized as zero
+        L = (double*)calloc(SIZE*SIZE, sizeof(double));
+        U = (double*)calloc(SIZE*SIZE, sizeof(double));
+        vec = (double*)malloc(SIZE * sizeof(double));
+        Y = (double*)calloc(SIZE, sizeof(double));
+        answers = (double*)calloc(SIZE, sizeof(double));
+
+        if(taskid == MASTER) printf("Start Processing......\n");
+        vec_generator();
+        matrix_generator();
+        if(taskid == MASTER) printf("Random vector and Matrix Generated\n");
+        if(export_ans == 1){
+            exporting(matrix, SIZE * SIZE, "matrix");
+            exporting(vec, SIZE, "vector");
+        }
+        if(taskid == MASTER) printf("Rearranging Matrix...\n");
+        re_arrange();
+        if(export_ans == 1){
+            exporting(matrix, SIZE * SIZE, "rmatrix");
+            exporting(vec, SIZE, "rvector");
+        }
+        if(taskid == MASTER) printf("Calculating LU\n");
+        get_lu();
+        if(export_ans == 1){
+            exporting(L, SIZE * SIZE, "L");
+            exporting(U, SIZE * SIZE, "U");
+        }
     }
-    if(strlen(argv[4]) > 1||(argv[4][0]!= '0' && argv[4][0]!= '1')){
-        if(taskid == MASTER) printf("The 4th argument, export or not should be 0(not export) or 1(export)");
+    else{
+        if(taskid == MASTER) printf("Invalid Argument\n");
         MPI_Finalize();
-        exit(0);
+        exit(EXIT_FAILURE);
     }
-    export_ans = atoi(argv[4]);
-    // assign input to variables
-    SIZE = atoi(argv[1]);
-    RANGE = atoi(argv[2]);
-    SCALE = atoi(argv[3]);
-    // allocate memory space
-    if(taskid == MASTER) 
-    printf("Start Processing......\n");
-    
-    matrix = (double*)malloc(SIZE * SIZE * sizeof(double));
-    vec = (double*)malloc(SIZE * sizeof(double));
-    Y = (double*)calloc(SIZE, sizeof(double));
-    answers = (double*)calloc(SIZE, sizeof(double));
-
-    // L and U should be initialized with zero
-    L = (double*)calloc(SIZE*SIZE, sizeof(double));
-    U = (double*)calloc(SIZE*SIZE, sizeof(double));
-
-    matrix_generator();
-    // generate vector and rearrange both matrix and vector in MASTER process
-    vec_generator();
-
-    if(taskid == MASTER && export_ans == 1){
-        exporting(matrix, SIZE, SIZE, "matrix.csv");
-        exporting(vec, 1, SIZE, "vector.csv");
-    }
-    if(taskid == MASTER) printf("Rearranging matrix and vector\n");
-    // Problem found: We cannot use MPI_Finalize in single process, i.e. add if(id == MASTER) here. It will cause other processes running and get no response.
-    if(re_arrange() == -1){
-        MPI_Finalize();
-        return -1;
-    }
-    if(taskid == MASTER && export_ans == 1){
-        exporting(matrix, SIZE, SIZE, "rmatrix.csv");
-        exporting(vec, 1, SIZE, "rvector.csv");
-    }
-    MPI_Bcast(&matrix[0], SIZE * SIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    // broadcast vector after generate and rearrange it
-    MPI_Bcast(&vec[0], SIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    get_lu();
-    if(export_ans == 1){
-        exporting(L, SIZE, SIZE, "L.csv");
-        exporting(U, SIZE, SIZE, "U.csv");
-    }
+    if(taskid == MASTER) printf("\nCalculating Result...\n");
     count();
     MPI_Bcast(&answers[0], SIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&Y[0], SIZE, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    if(taskid == MASTER && export_ans == 1){
-        exporting(answers, 1, SIZE, "answers.csv");
+    if(export_ans == 1){
+        exporting(answers, SIZE, "answers");
     }
     bool res = checker();
     MPI_Barrier(MPI_COMM_WORLD);

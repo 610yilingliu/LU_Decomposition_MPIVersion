@@ -87,7 +87,7 @@ void count(){
             // the matrix generated randomly in serial and parallel code are not the same, so we cannot compare the time if they terminate without finish the counting process.
             // so we will not print the time if the code terminate with error.
             printf("Divide by zero error!");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         Y[i] = right/L(i,i);
     }
@@ -99,7 +99,7 @@ void count(){
         // divide by zero error checking
         if(U(i, i) == 0){
             printf("Divide by zero error!");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         answers[i] = right/U(i, i);
     }
@@ -144,7 +144,7 @@ void get_lu(){
                 // divide by zero error checking
                 if(U(i, i) == 0){
                     printf("\nDivide by zero error!");
-                    exit(0);
+                    exit(EXIT_FAILURE);
                 }
                 L(k, i) = (matrix(k, i) - sum)/U(i, i);
             }
@@ -164,7 +164,7 @@ int find_maxrow(int col) {
     }
     if (mx == 0) {
         printf("\nInvalid Matrix\n");
-        exit(0);
+        exit(EXIT_FAILURE);
     }
     return idx;
 }
@@ -269,11 +269,12 @@ int check_file(char *fname){
 }
 
 int main(int argc, char* argv[]){
+    start_t = clock();
     //read from file
     if(argv[1][0] == 'r' && argc == 2){
         if(check_file("matrix.csv") == 0 || check_file("vector.csv") == 0){
             printf("Missing Matrix");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
          SIZE = get_size("matrix.csv");
          printf("Size: %d\n", SIZE);
@@ -308,7 +309,6 @@ int main(int argc, char* argv[]){
             read_mat("matrix.csv", matrix);
             read_mat("vector.csv", vec);
             read_mat("L.csv", L);
-            printmat(L, SIZE, SIZE);
             read_mat("U.csv", U);
         }
     }
@@ -317,31 +317,31 @@ int main(int argc, char* argv[]){
         if(argc != 6){
             printf("You should allocate three variables: size, range, scale, export answer or not(0/1)\n");
             printf("Current number of args: %d\n", argc);
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         if(argv[2][0] == 0){
             printf("Matrix size should greater than 0");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         if(argv[3][0] == 0){
             printf("Range should greater than 0");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         if(argv[4][0] == 0){
             printf("Scale should greater than 0");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         for(int i = 2; i < argc; i ++){
             for(int j = 0; j < strlen(argv[i]); j++){
                 if(argv[i][j] < '0' || argv[i][j] > '9'){
                     printf("Invalid argument at arg[%d][%d]", i, j);
-                    exit(0);
+                    exit(EXIT_FAILURE);
                 }
             }
         }
-        if(strlen(argv[5]) > 1||(argv[4][0]!= '0' && argv[4][0]!= '1')){
+        if(strlen(argv[5]) > 1||(argv[5][0]!= '0' && argv[5][0]!= '1')){
             printf("The 4th argument, export or not should be 0(not export) or 1(export)");
-            exit(0);
+            exit(EXIT_FAILURE);
         }
         export_ans = atoi(argv[5]);
         // assign input to variables
@@ -358,7 +358,7 @@ int main(int argc, char* argv[]){
         answers = (double*)calloc(SIZE, sizeof(double));
 
         printf("Start Processing......\n");
-        start_t = clock();
+        
         vec_generator();
         matrix_generator();
         // //test input
@@ -386,13 +386,7 @@ int main(int argc, char* argv[]){
     }
     else{
         printf("Invalid Argument\n");
-        printf("%s ", argv[0]);
-        printf("%s ", argv[1]);
-        printf("%s ", argv[2]);
-        printf("%s ", argv[3]);
-        printf("%s ", argv[4]);
-        printf("%s ", argv[5]);
-        exit(0);
+        exit(EXIT_FAILURE);
     }
     printf("\nCalculating Result...\n");
     count();
